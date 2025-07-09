@@ -1,31 +1,39 @@
+// components/CapturedImageView.tsx
 import React from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, Text } from 'react-native';
+import { View, Image, StyleSheet, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
 
-interface CapturedImageViewProps {
+interface Props {
   imageUri: string;
   onRetake: () => void;
-  onAccept?: () => void;
+  onAccept: () => void;
+  isSaving?: boolean;
 }
 
-export default function CapturedImageView({
-  imageUri,
-  onRetake,
-  onAccept
-}: CapturedImageViewProps) {
+export default function CapturedImageView({ imageUri, onRetake, onAccept, isSaving = false }: Props) {
   return (
     <View style={styles.container}>
       <Image source={{ uri: imageUri }} style={styles.image} />
 
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity style={styles.actionButton} onPress={onRetake}>
-          <Text style={styles.actionText}>Retake</Text>
+      <View style={styles.buttonsContainer}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={onRetake}
+          disabled={isSaving}
+        >
+          <Text style={styles.buttonText}>Retake</Text>
         </TouchableOpacity>
 
-        {onAccept && (
-          <TouchableOpacity style={[styles.actionButton, styles.acceptButton]} onPress={onAccept}>
-            <Text style={styles.actionText}>Accept</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.button, styles.acceptButton]}
+          onPress={onAccept}
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Accept</Text>
+          )}
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -34,32 +42,35 @@ export default function CapturedImageView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'black',
   },
   image: {
-    width: '100%',
-    height: '100%',
+    flex: 1,
+    resizeMode: 'contain',
   },
-  actionsContainer: {
-    position: 'absolute',
-    bottom: 50,
+  buttonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 20,
+    marginBottom: 30, // Add this to move buttons higher
+    position: 'absolute', // Make buttons overlay the image
+    bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
   },
-  actionButton: {
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    minWidth: 120,
+
+  button: {
+    backgroundColor: '#333',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 8,
   },
   acceptButton: {
-    backgroundColor: 'rgba(0, 120, 0, 0.6)',
+    backgroundColor: '#4CAF50',
   },
-  actionText: {
+  buttonText: {
     color: 'white',
-    fontWeight: 'bold',
     fontSize: 16,
+    fontWeight: 'bold',
   },
 });

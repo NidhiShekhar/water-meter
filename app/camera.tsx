@@ -1,5 +1,5 @@
 // app/camera.tsx
-import { router } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text, Alert, Platform } from 'react-native';
 import * as MediaLibrary from 'expo-media-library';
@@ -7,6 +7,7 @@ import CameraView, { CameraRefType } from '../components/CameraView';
 import CapturedImageView from '../components/CapturedImageView';
 import useCameraPermission from '../hooks/useCameraPermission';
 import useMediaLibraryPermission from '../hooks/useMediaLibraryPermission';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CameraScreen() {
   const { hasPermission: hasCameraPermission, isLoading: cameraLoading, requestPermission: requestCameraPermission } = useCameraPermission();
@@ -14,6 +15,7 @@ export default function CameraScreen() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const cameraRef = useRef<CameraRefType>(null);
+  const { meterID } = useLocalSearchParams();
 
   useEffect(() => {
     requestCameraPermission();
@@ -60,14 +62,50 @@ export default function CameraScreen() {
         await MediaLibrary.createAlbumAsync(albumName, asset, false);
       }
 
+      // Associate photo with specific water meter in AsyncStorage
+      if (meterID) {
+        const meterPhotosKey = `meter-photos-${meterID}`;
+        const storedPhotos = await AsyncStorage.getItem(meterPhotosKey);
+        const photos = storedPhotos ? JSON.parse(storedPhotos) : [];
+
+        // Correct the URI to ensure it points to the water-meter subfolder
+        let photoUri = asset.uri;
+        if (!photoUri.includes('/water-meter/')) {
+          // Extract the filename from the URI
+          const fileName = photoUri.split('/').pop();
+
+          // Replace the path to include the water-meter subfolder
+          photoUri = photoUri.replace(`/${fileName}`, `/water-meter/${fileName}`);
+          console.log('Corrected URI:', photoUri);
+        }
+
+        // Add the new photo to the meter's photo collection with corrected URI
+        photos.push({
+          id: asset.id,
+          uri: photoUri,
+          creationTime: new Date().getTime()
+        });
+
+        // Save updated photos list
+        await AsyncStorage.setItem(meterPhotosKey, JSON.stringify(photos));
+        console.log('Saved photo with URI:', photoUri);
+      }
+
       Alert.alert(
         "Success",
-        "Image saved to water-meter folder in your gallery",
-        [{ text: "OK", onPress: () => router.back() }]
+        "Image saved successfully",
+        [{ text: "OK", onPress: () => {
+          // Navigate back to the water meter detail screen if meterID exists
+          if (meterID) {
+            router.push(`/water-meter/${meterID}`);
+          } else {
+            router.back();
+          }
+        }}]
       );
     } catch (error) {
       console.error("Save error:", error);
-      Alert.alert("Error", "Failed to save the image to your gallery");
+      Alert.alert("Error", "Failed to save the image");
     } finally {
       setIsSaving(false);
     }

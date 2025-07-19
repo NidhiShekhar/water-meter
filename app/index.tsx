@@ -1,9 +1,10 @@
 // app/index.tsx - Home screen with water meter list
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TouchableWithoutFeedback, Keyboard, TextInput, Modal } from 'react-native';
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 interface WaterMeter {
   id: string;
@@ -15,7 +16,8 @@ interface WaterMeter {
 
 export default function HomeScreen() {
   const [waterMeters, setWaterMeters] = useState<WaterMeter[]>([]);
-
+  const [modalVisible, setModalVisible] = useState(false);
+  const [newMeterName, setNewMeterName] = useState('');
   useEffect(() => {
     loadWaterMeters();
   }, []);
@@ -51,25 +53,35 @@ export default function HomeScreen() {
     }
   };
 
-  const addWaterMeter = async () => {
-    const newId = String(waterMeters.length + 1);
-    const newMeter = {
+// Update this function to show the dialog instead of creating a meter
+const addWaterMeter = () => {
+  setNewMeterName(''); // Start with empty input instead of default name
+  setModalVisible(true);
+};
+
+// Add this function to handle saving with a custom name
+const saveNewMeter = async () => {
+  const newId = String(waterMeters.length + 1);
+  const newMeter = {
     id: newId,
-    name: `Water Meter ${newId}`,
+    name: newMeterName.trim() || `Water Meter ${newId}`, // Use custom name or default if empty
     latestImageUri: null,
     latestReading: null,
     timestamp: null
-    };
-
-    const updatedMeters = [...waterMeters, newMeter];
-    setWaterMeters(updatedMeters);
-
-    try {
-      await AsyncStorage.setItem('waterMeters', JSON.stringify(updatedMeters));
-    } catch (error) {
-      console.error('Failed to save new water meter:', error);
-    }
   };
+
+  const updatedMeters = [...waterMeters, newMeter];
+  setWaterMeters(updatedMeters);
+
+  try {
+    await AsyncStorage.setItem('waterMeters', JSON.stringify(updatedMeters));
+  } catch (error) {
+    console.error('Failed to save new water meter:', error);
+  }
+
+  setModalVisible(false);
+  setNewMeterName('');
+};
 
 const renderWaterMeter = ({ item }: { item: WaterMeter }) => (
   <TouchableOpacity
@@ -113,6 +125,44 @@ const renderWaterMeter = ({ item }: { item: WaterMeter }) => (
         <Ionicons name="add" size={24} color="white" />
         <Text style={styles.addButtonText}>Add Water Meter</Text>
       </TouchableOpacity>
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Add New Water Meter</Text>
+
+              <TextInput
+                style={styles.input}
+                value={newMeterName}
+                onChangeText={setNewMeterName}
+                placeholder="Enter water meter name"
+                autoFocus={true}
+              />
+
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={[styles.button, styles.cancelButton]}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.button, styles.saveButton]}
+                  onPress={saveNewMeter}
+                >
+                  <Text style={styles.buttonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -207,5 +257,55 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 20,
+    fontSize: 16,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  button: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    marginLeft: 10,
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+  },
+  saveButton: {
+    backgroundColor: '#4CAF50',
+  },
+  buttonText: {
+    fontWeight: '500',
+    color: '#fff',
+  },
+  cancelButtonText: {
+    fontWeight: '500',
+    color: '#333',
   },
 });

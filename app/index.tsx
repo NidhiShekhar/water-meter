@@ -4,7 +4,8 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TouchableWit
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 interface WaterMeter {
   id: string;
@@ -69,7 +70,21 @@ const saveNewMeter = async () => {
     latestReading: null,
     timestamp: null
   };
+try {
+    // Save to Firestore
+    await addDoc(collection(db, 'waterMeters'), newMeter);
 
+    // Update local state
+    const updatedMeters = [...waterMeters, newMeter];
+    setWaterMeters(updatedMeters);
+    await AsyncStorage.setItem('waterMeters', JSON.stringify(updatedMeters));
+  } catch (error) {
+    console.error('Failed to save new water meter:', error);
+  }
+
+  setModalVisible(false);
+  setNewMeterName('');
+};
   const updatedMeters = [...waterMeters, newMeter];
   setWaterMeters(updatedMeters);
 

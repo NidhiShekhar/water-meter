@@ -5,6 +5,9 @@ import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
 import * as MediaLibrary from 'expo-media-library';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, updateDoc } from 'firebase/firestore';
+import { storage, db } from '../firebase/config';
 
 interface PhotoItem {
   id: string;
@@ -46,6 +49,50 @@ export default function WaterMeterDetailScreen() {
   );
 
  // Modify your loadPhotos function in app/water-meter/[id].tsx
+const uploadPhotoToFirebase = async (uri, meterId) => {
+  try {
+    // Convert image to blob
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    // Create a reference to the photo location in Firebase Storage
+    const timestamp = Date.now();
+    const photoRef = ref(storage, `waterMeterPhotos/${meterId}/${timestamp}.jpg`);
+
+    // Upload the blob
+    await uploadBytes(photoRef, blob);
+
+    // Get the download URL
+    const downloadURL = await getDownloadURL(photoRef);
+
+    // Update Firestore with the new image URL and reading
+    const meterRef = doc(db, 'waterMeters', meterId);
+    await updateDoc(meterRef, {
+      latestImageUri: downloadURL,
+      timestamp: timestamp
+    });
+
+    // Also update local AsyncStorage
+    const updatedMeters = waterMeters.map(meter => {
+      if (meter.id === meterId) {
+        return {
+          ...meter,
+          latestImageUri: downloadURL,
+          timestamp: timestamp
+        };
+      }
+      return meter;
+    });
+
+    setWaterMeters(updatedMeters);
+    await AsyncStorage.setItem('waterMeters', JSON.stringify(updatedMeters));
+
+    return downloadURL;
+  } catch (error) {
+    console.error('Error uploading photo:', error);
+    throw error;
+  }
+};
 
  const loadPhotos = async () => {
    if (!id) return;
